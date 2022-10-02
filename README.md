@@ -3,6 +3,7 @@ Setup of my weather station. Here, I try to put all relevant information about m
 
 ## Components
 The climate station consists of
+
 1 A sensor module comprissing the following:
 1.1 Raspberry Pi Pico running CircuitPython [[Datasheet](https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf)]
 1.2 Adafruit AirLift FeatherWing – ESP32 WiFi Co-Processor [[Datasheet](https://www.berrybase.de/en/Pixelpdfdata/Articlepdf/id/7049/onumber/ADA4264)]
