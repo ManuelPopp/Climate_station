@@ -1,5 +1,5 @@
 # Weatherstation
-Setup of my climate station. Here, I try to put all relevant information about my current hobby project of setting up a climate station.
+Setup of my weather station. Here, I try to put all relevant information about my current hobby project of setting up a weatherstation.
 
 ## Components
 The climate station consists of
