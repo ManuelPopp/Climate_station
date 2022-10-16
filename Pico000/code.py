@@ -6,16 +6,34 @@ import busio
 import sdcardio
 import storage
 from digitalio import DigitalInOut
+from digitalio import Direction
+import rtc
 import adafruit_requests as requests
 import adafruit_esp32spi.adafruit_esp32spi_socket as socket
 from adafruit_esp32spi import adafruit_esp32spi
 from adafruit_bme280 import basic as af_bme280
 from adafruit_onewire.bus import OneWireBus
 import adafruit_ds18x20
-from time import sleep, localtime, mktime
+from time import sleep, localtime, mktime, struct_time
 import adafruit_esp32spi.adafruit_esp32spi_socket as socket
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from adafruit_requests import get
+
+# Time zone offset
+tz_offset = 0
+
+# Board LED
+led = DigitalInOut(board.LED)
+led.direction = Direction.OUTPUT
+
+def blink_onboard(intervals = [0.2, 0.2, 0.2]):
+    for flashtime in intervals:
+        led.value = True
+        sleep(flashtime)
+        led.value = False
+        sleep(flashtime)
+
+blink_onboard()
 
 ## Wifi setup
 # Get wifi login info
@@ -44,6 +62,29 @@ if esp.status == adafruit_esp32spi.WL_IDLE_STATUS:
 print("Firmware vers.", esp.firmware_version)
 print("MAC addr:", [hex(i) for i in esp.MAC_address])
 
+# Get correct local time from internet
+def set_rtc():
+    success = False
+    while not success:
+        while not esp.is_connected:
+            try:
+                esp.connect_AP(ssid, pw)
+            except:
+                print("Failed to connect to AP.")
+                blink_onboard([1])
+        try:
+            t = localtime(esp.get_time()[0] + tz_offset)
+            rtc.RTC().datetime = t
+            print(f"Found time: {t[0]}-{t[1]}-{t[2]} {t[3]}:{t[4]}:{t[5]}")
+            success = True if not (t[0] == 2020) else False
+        except:
+            blink_onboard([0.2, 1, 2])
+        if not success:
+            blink_onboard([5])
+    blink_onboard()
+
+set_rtc()
+
 #-----------------------------------------------------
 ## DS18B20 setup
 ow_bus = OneWireBus(board.GP16)
@@ -52,6 +93,7 @@ ow_devices = ow_bus.scan()
 #-----------------------------------------------------
 ## BME280 setup
 i2c_0 = busio.I2C(sda = board.GP0, scl = board.GP1)
+i2c_1 = busio.I2C(sda = board.GP2, scl = board.GP3)
 
 #-----------------------------------------------------
 ## Format values for export
@@ -70,6 +112,11 @@ exportformat += "&{}&{}&{}"
 export_list.append("bme280_0:T")
 export_list.append("bme280_0:p")
 export_list.append("bme280_0:rH")
+
+exportformat += "&{}&{}&{}"
+export_list.append("bme280_1:T")
+export_list.append("bme280_1:p")
+export_list.append("bme280_1:rH")
 
 #-----------------------------------------------------
 ## Callback methods
@@ -108,16 +155,19 @@ def sleep_interval(t_0, seconds = interval):
 #-----------------------------------------------------
 ## SD-card setup
 # SD MISO to Pin 4, MOSI to Pin 7, SCK to Pin 6, CS to Pin 5
-save_to_SD = False
+save_to_SD = True
 always_save_to_SD = False
 
 if save_to_SD:
-    spi_0 = busio.SPI(board.GP6, board.GP7, board.GP4)
-    cs = board.GP5
-    sd = sdcardio.SDCard(spi_0, cs)
+    try:
+        spi_0 = busio.SPI(board.GP6, board.GP7, board.GP4)
+        cs = board.GP5
+        sd = sdcardio.SDCard(spi_0, cs)
 
-    vfs = storage.VfsFat(sd)
-    storage.mount(vfs, "/sd")
+        vfs = storage.VfsFat(sd)
+        storage.mount(vfs, "/sd")
+    except:
+        save_to_SD = False
 
 ######################################################
 ### Set variables
@@ -148,6 +198,7 @@ datetime_format = "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}"
 data_package = []
 counter = -1
 while True:
+    led.value = True
     counter += 1
     t_0 = localtime()
     t = datetime_format.format(*t_0)
@@ -169,6 +220,16 @@ while True:
         measurements.append(None)
         measurements.append(None)
         print("Failed receiving data from BME280 sensor 0.")
+    try:
+        bme280_1 = af_bme280.Adafruit_BME280_I2C(i2c_1, 0x76)
+        measurements.append(bme280_1.temperature)
+        measurements.append(bme280_1.pressure)
+        measurements.append(bme280_1.humidity)
+    except:
+        measurements.append(None)
+        measurements.append(None)
+        measurements.append(None)
+        print("Failed receiving data from BME280 sensor 1.")
     data_package.append(measurements)
     #-----------------------------------------------------
     ## Send data
@@ -247,4 +308,5 @@ while True:
             print("Failed to save data to SD card.")
     if len(data_package) > 0:
         print("Data in memory.")
+    led.value = False
     sleep_interval(t_0)
