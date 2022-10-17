@@ -18,3 +18,6 @@ The climate station consists of
 The idea behind the setup is to measure, store, and visualise environmental parameters. Data are to be collected using the sensors (1.5, 1.6) and the Pi Pico (1.1). Since the Pico W was not available when I got the micro controllers, an additional Adafruit AirLift (1.2) is used to eastablish a wireless connection. A micro SD card is used to prevent data loss, in case a Wifi connection cannot be established.
 If the connection between sensor module and router is working, MQTT is used to send strings of sensor data to the MQTT broker running on the Raspberry Pi (2.1).
 The Raspberry Pi then saves the data to a USB storage device. Moreover, it can be used to publish the data on a website (local or public).
+
+## Wiring
+![Wiring](https://live.staticflickr.com/65535/52434492339_c2d4ca235d_b.jpg)
